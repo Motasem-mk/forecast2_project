@@ -70,11 +70,61 @@ When running locally with Docker Compose, copy `.env.example` to `.env` in the p
 
 ## Local Development
 
-1. Clone this repo, copy `.env.example` to `.env` and fill in AWS & Mongo credentials.
-2. Run Airbyte locally or connect to existing workspace to ingest sources to S3.
-3. From project root: `docker-compose up --build`
-4. This will start a 3-node Mongo replica set, run ETL container, and perform tests.
-5. Access MongoDB at `mongodb://localhost:27017/forecast2`.
+These steps let you run the full pipeline on your local machine using Docker Compose:
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/Motasem-mk/forecast2_project.git
+   cd forecast2_project
+   ```
+
+2. **Copy the environment template**
+
+   ```bash
+   cp etl_loader/.env.example .env
+   ```
+
+   Then edit `.env` and fill in your AWS credentials, MongoDB root username/password, and S3 bucket name.
+
+3. **Install Docker & Docker Compose**
+
+   * [Docker Desktop](https://www.docker.com/products/docker-desktop) on macOS/Windows
+   * `docker-compose` on Linux via your package manager
+
+4. **Start the services**
+
+   ```bash
+   docker-compose up --build
+   ```
+
+   This will spin up:
+
+   * A 3-node MongoDB replica set (mongodb://localhost:27017/forecast2)
+   * The ETL container which runs: `transform.py`, `migrate.py`, `test_quality.py`, and `crud_demo.py`.
+
+5. **Verify**
+
+   * Open a new terminal and connect to MongoDB:
+
+     ```bash
+     docker exec -it mongo1 mongosh -u <root_user> -p <root_password> --authenticationDatabase admin
+     ```
+   * Check the `stations` and `observations` collections:
+
+     ```js
+     use forecast2;
+     db.stations.count();
+     db.observations.count();
+     ```
+
+6. **Stopping**
+
+   ```bash
+   docker-compose down
+   ```
+
+---
 
 ## AWS Deployment
 

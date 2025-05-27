@@ -1,0 +1,15 @@
+{
+	"auths": {},
+	"currentContext": "desktop-linux",
+	"cliPluginsExtraDirs": [
+		"/usr/local/lib/docker/cli-plugins"
+	],
+	"plugins": {
+		"-x-cli-hints": {
+			"enabled": "true"
+		}
+	},
+	"features": {
+		"hooks": "true"
+	}
+}

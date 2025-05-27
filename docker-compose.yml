@@ -1,0 +1,130 @@
+# docker-compose.yml
+services:
+  mongo1:
+    image: mongo:6.0
+    container_name: mongo1
+    hostname: mongo1
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo-keyfile"]
+    environment:
+      MONGO_INITDB_DATABASE: forecast2
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongo1-data:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - mongo-cluster
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo2:
+    image: mongo:6.0
+    container_name: mongo2
+    hostname: mongo2
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo-keyfile"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongo2-data:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
+    ports:
+      - "27018:27017"
+    networks:
+      - mongo-cluster
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo3:
+    image: mongo:6.0
+    container_name: mongo3
+    hostname: mongo3
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo-keyfile"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongo3-data:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
+    ports:
+      - "27019:27017"
+    networks:
+      - mongo-cluster
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Initialize replica set - runs once and exits
+  mongo-init:
+    image: mongo:6.0
+    container_name: mongo-init
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    networks:
+      - mongo-cluster
+    volumes:
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
+    command: >
+      bash -c "
+        echo 'Waiting for MongoDB to be ready...' &&
+        sleep 20 &&
+        echo 'Attempting to initialize replica set...' &&
+        mongosh --host mongo1:27017 -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin --eval '
+          try {
+            var config = {
+              _id: \"rs0\",
+              members: [
+                { _id: 0, host: \"mongo1:27017\", priority: 2 },
+                { _id: 1, host: \"mongo2:27017\", priority: 1 },
+                { _id: 2, host: \"mongo3:27017\", priority: 1 }
+              ]
+            };
+            rs.initiate(config);
+            print(\"Replica set initiated successfully\");
+          } catch(e) {
+            if (e.message && e.message.includes(\"already initialized\")) {
+              print(\"Replica set already initialized\");
+            } else {
+              print(\"Error initializing replica set: \" + e);
+              throw e;
+            }
+          }
+        ' || echo 'Failed to initialize replica set'
+      "
+
+  etl_loader:
+    build: ./etl_loader
+    container_name: etl_loader
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+      - mongo-init
+    env_file:
+      - .env
+    networks:
+      - mongo-cluster
+
+volumes:
+  mongo1-data:
+  mongo2-data:
+  mongo3-data:
+
+networks:
+  mongo-cluster:
+    driver: bridge

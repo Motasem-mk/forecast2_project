@@ -1,6 +1,6 @@
 # Construisez et testez une infrastructure de données
 
-This repository contains the end-to-end data pipeline for the **Forecast 2.0** project at **GreenAndCoop**.
+This repository contains the end-to-end data pipeline for the **Forecast** project at **GreenAndCoop**.
 
 The project integrates new weather data sources into a MongoDB-based data infrastructure on AWS. The pipeline ingests raw data via Airbyte, stores it in Amazon S3, transforms it with Python, tests data quality, and loads the cleaned data into a replicated MongoDB database for analytical use.
 
